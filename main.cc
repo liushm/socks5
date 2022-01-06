@@ -1,9 +1,9 @@
-#include <boost/asio.hpp>
+#include <asio.hpp>
 #include <thread>
 #include <memory>
 #include <iostream>
 
-using boost::asio::ip::tcp;
+using asio::ip::tcp;
 
 class session : public std::enable_shared_from_this<session>
 {
@@ -20,8 +20,8 @@ private:
     // 握手阶段
     void do_init_recv() {
         auto self(shared_from_this());
-        socket_.async_read_some(boost::asio::buffer(idata_),
-            [this, self](const boost::system::error_code& ec, std::size_t size) {
+        socket_.async_read_some(asio::buffer(idata_),
+            [this, self](const std::error_code& ec, std::size_t size) {
                 if (ec) {
                     return ;
                 }
@@ -41,8 +41,8 @@ private:
     }
     void do_init_send() {
         auto self(shared_from_this());
-        boost::asio::async_write(socket_, boost::asio::buffer("\x05\x00", 2),
-            [this, self](const boost::system::error_code& ec, std::size_t size) {
+        asio::async_write(socket_, asio::buffer("\x05\x00", 2),
+            [this, self](const std::error_code& ec, std::size_t size) {
                 if (!ec) {
                     do_request_recv();
                 }
@@ -52,8 +52,8 @@ private:
     // 处理请求，仅支持CONNECT，暂不支持IPV6
     void do_request_recv() {
         auto self(shared_from_this());
-        socket_.async_read_some(boost::asio::buffer(idata_),
-            [this, self](const boost::system::error_code& ec, std::size_t size) {
+        socket_.async_read_some(asio::buffer(idata_),
+            [this, self](const std::error_code& ec, std::size_t size) {
                 if (ec) {
                     return ;
                 }
@@ -74,7 +74,7 @@ private:
                 unsigned short port = idata_[size-2] * 256 + idata_[size-1];
 
                 if (type == 0x01) {
-                    tcp::endpoint ep(boost::asio::ip::address_v4({idata_[4], idata_[5], idata_[6], idata_[7]}), port);
+                    tcp::endpoint ep(asio::ip::address_v4({idata_[4], idata_[5], idata_[6], idata_[7]}), port);
                     std::cout << "IPV4ADDR: " << ep << std::endl;
 
                     do_try_connect(ep);
@@ -82,7 +82,7 @@ private:
                 else if (type == 0x03) {
                     std::string addr(reinterpret_cast<char*>(&idata_[5]), static_cast<std::size_t>(idata_[4]));
 
-                    resolver_.async_resolve(addr, std::to_string(port), [this, self](const boost::system::error_code& ec, tcp::resolver::results_type results) {
+                    resolver_.async_resolve(addr, std::to_string(port), [this, self](const std::error_code& ec, tcp::resolver::results_type results) {
                         for (auto ep : results) {
                             if (ep.endpoint().address().is_v4()) {
                                 std::cout << "RESOLVED: " << ep.endpoint() << std::endl;
@@ -102,7 +102,7 @@ private:
     }
     void do_try_connect(tcp::endpoint ep) {
         auto self(shared_from_this());
-        remote_.async_connect(ep, [this, self](const boost::system::error_code& ec) {
+        remote_.async_connect(ep, [this, self](const std::error_code& ec) {
             if (!ec) {
                 do_request_send();
             }
@@ -113,8 +113,8 @@ private:
     }
     void do_request_send() {
         auto self(shared_from_this());
-        boost::asio::async_write(socket_, boost::asio::buffer("\x05\x00\x00\01\x00\x00\x00\x00\x00\x00", 10),
-            [this, self](const boost::system::error_code& ec, std::size_t size) {
+        asio::async_write(socket_, asio::buffer("\x05\x00\x00\01\x00\x00\x00\x00\x00\x00", 10),
+            [this, self](const std::error_code& ec, std::size_t size) {
                 if (!ec) {
                     do_i_recv();
                     do_o_recv();
@@ -124,14 +124,14 @@ private:
     }
     void do_request_fail() {
         // general SOCKS server failure
-        boost::asio::async_write(socket_, boost::asio::buffer("\x05\x01\x00\00\x00\x00\x00\x00\x00\x00", 10),
-            [](const boost::system::error_code& ec, std::size_t size) {});
+        asio::async_write(socket_, asio::buffer("\x05\x01\x00\00\x00\x00\x00\x00\x00\x00", 10),
+            [](const std::error_code& ec, std::size_t size) {});
     }
     // 成功建立连接，转发数据阶段，出错就结束会话
     void do_i_recv() {
         auto self(shared_from_this());
-        socket_.async_read_some(boost::asio::buffer(idata_),
-            [this, self](const boost::system::error_code& ec, std::size_t size) {
+        socket_.async_read_some(asio::buffer(idata_),
+            [this, self](const std::error_code& ec, std::size_t size) {
                 if (!ec) {
                     // std::cout << "do_i_recv " << size << std::endl;
                     do_o_send(size);
@@ -144,8 +144,8 @@ private:
     }
     void do_i_send(std::size_t size) {
         auto self(shared_from_this());
-        boost::asio::async_write(socket_, boost::asio::buffer(odata_, size),
-            [this, self](const boost::system::error_code& ec, std::size_t size) {
+        asio::async_write(socket_, asio::buffer(odata_, size),
+            [this, self](const std::error_code& ec, std::size_t size) {
                 if (!ec) {
                     do_o_recv();
                 }
@@ -157,8 +157,8 @@ private:
     }
     void do_o_recv() {
         auto self(shared_from_this());
-        remote_.async_read_some(boost::asio::buffer(odata_),
-            [this, self](const boost::system::error_code& ec, std::size_t size) {
+        remote_.async_read_some(asio::buffer(odata_),
+            [this, self](const std::error_code& ec, std::size_t size) {
                 if (!ec) {
                     // std::cout << "do_o_recv " << size << std::endl;
                     do_i_send(size);
@@ -171,8 +171,8 @@ private:
     }
     void do_o_send(std::size_t size) {
         auto self(shared_from_this());
-        boost::asio::async_write(remote_, boost::asio::buffer(idata_, size),
-            [this, self](const boost::system::error_code& ec, std::size_t size) {
+        asio::async_write(remote_, asio::buffer(idata_, size),
+            [this, self](const std::error_code& ec, std::size_t size) {
                 if (!ec) {
                     do_i_recv();
                 }
@@ -198,13 +198,13 @@ private:
 class server
 {
 public:
-    server(boost::asio::io_context& ioc, short port) :
+    server(asio::io_context& ioc, short port) :
         acceptor_(ioc, tcp::endpoint(tcp::v4(), port)) {
         do_accept();
     }
 private:
     void do_accept() {
-        acceptor_.async_accept([this](boost::system::error_code ec, tcp::socket socket) {
+        acceptor_.async_accept([this](const std::error_code& ec, tcp::socket socket) {
             if (!ec) {
                 std::make_shared<session>(std::move(socket))->start();
             }
@@ -216,7 +216,7 @@ private:
 
 int main(int argc, char* argv[])
 {
-    boost::asio::io_context ioc;
+    asio::io_context ioc;
 
     try {
         server s(ioc, 1234);
